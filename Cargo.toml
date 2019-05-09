@@ -1,0 +1,7 @@
+[package]
+name = "lps"
+version = "0.1.0"
+authors = ["Loris Leitner <lorisleitner@live.com>"]
+edition = "2018"
+
+[dependencies]
