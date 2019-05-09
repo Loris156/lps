@@ -15,6 +15,12 @@ fn main() {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("verbose")
+                .short("v")
+                .long("verbose")
+                .help("Enable verbose output"),
+        )
+        .arg(
             Arg::with_name("root")
                 .help("Root search directory")
                 .value_name("ROOT"),
@@ -22,12 +28,12 @@ fn main() {
         .get_matches();
 
     let config = Config::new(&matches).unwrap_or_else(|e| {
-        eprintln!("{}", e);
+        eprintln!("error: {}", e);
         std::process::exit(1);
     });
 
     lps::run(config).unwrap_or_else(|e| {
-        eprintln!("{}", e);
+        eprintln!("error: {}", e);
         std::process::exit(1);
     });
 }
