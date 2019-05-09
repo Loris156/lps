@@ -1,6 +1,10 @@
+use std::env;
+use std::fs;
+use std::path::PathBuf;
+
 pub struct Config {
     filename: Option<String>,
-    root: Option<String>,
+    root: PathBuf,
 }
 
 impl Config {
@@ -11,12 +15,14 @@ impl Config {
         };
 
         let root = match matches.value_of("root") {
-            Some(s) => Some(String::from(s)),
-            None => None,
+            Some(s) => PathBuf::from(s),
+            None => env::current_dir().unwrap(), // TODO
         };
 
         Config { filename, root }
     }
 }
 
-pub fn run(config: Config) {}
+pub fn run(config: Config) {
+
+}
