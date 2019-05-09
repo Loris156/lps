@@ -21,7 +21,13 @@ fn main() {
         )
         .get_matches();
 
-    let config = Config::new(&matches);
+    let config = Config::new(&matches).unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        std::process::exit(1);
+    });
 
-    lps::run(config);
+    lps::run(config).unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        std::process::exit(1);
+    });
 }
