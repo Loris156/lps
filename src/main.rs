@@ -15,6 +15,14 @@ fn main() {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("content")
+                .short("c")
+                .long("content")
+                .value_name("TEXT")
+                .help("File content")
+                .takes_value(true),
+        )
+        .arg(
             Arg::with_name("verbose")
                 .short("v")
                 .long("verbose")
