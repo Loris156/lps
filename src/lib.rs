@@ -165,7 +165,25 @@ fn content_search(config: &Config, files: Vec<PathBuf>, sender: mpsc::Sender<Lps
         for chunk in files.chunks(files.len() / config.dop) {
             let chunk = chunk.to_vec();
 
-            thread::spawn(move || for file in chunk {});
+            thread::spawn(move || {
+                for file in chunk {
+                    let file = match File::open(file) {
+                        Ok(f) => f,
+                        Err(_) => {
+                            continue;
+                        }
+                    };
+
+                    for line in BufReader::new(file).lines() {
+                        let line = match line {
+                            Ok(l) => l,
+                            Err(_) => {
+                                continue;
+                            }
+                        };
+                    }
+                }
+            });
         }
     }
 }
