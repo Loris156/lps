@@ -23,6 +23,14 @@ fn main() {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("dop")
+                .short("d")
+                .long("dop")
+                .value_name("THREAD COUNT")
+                .help("Degree of parallelism")
+                .takes_value(true),
+        )
+        .arg(
             Arg::with_name("verbose")
                 .short("v")
                 .long("verbose")

@@ -7,10 +7,14 @@ use std::io;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
+use std::sync::mpsc;
+use std::thread;
+
 pub struct Config {
     verbose: bool,
     filename: Option<String>,
     content: Option<String>,
+    dop: usize,
     root: PathBuf,
 }
 
@@ -26,6 +30,21 @@ impl Config {
         let content = match matches.value_of("content") {
             Some(s) => Some(String::from(s)),
             None => None,
+        };
+
+        let dop = match matches.value_of("dop") {
+            Some(s) => String::from(s),
+            None => num_cpus::get().to_string(),
+        };
+
+        let dop = match dop.parse::<usize>() {
+            Ok(dop) => dop,
+            Err(_) => {
+                return Err(Box::new(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "invalid degree of parallelism",
+                )));
+            }
         };
 
         let root = match matches.value_of("root") {
@@ -47,9 +66,21 @@ impl Config {
             verbose,
             filename,
             content,
+            dop,
             root,
         })
     }
+}
+
+struct LpsResult {
+    file: String,
+    lines: Option<Vec<LpsLineResult>>,
+}
+
+struct LpsLineResult {
+    line: u32,
+    column: u32,
+    content: String,
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
@@ -63,107 +94,63 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         }
 
         println!("working directory: {}", root_path.unwrap());
+        println!("DoP was set to {} threads", config.dop);
     }
 
-    traverse(&config, &config.root);
+    // Get all files that match name, size, attributes, ...
+    let files = find_files_by_name(&config, &config.root);
 
-    Ok(())
-}
+    // Check content in multiple threads
+    let (sender, receiver) = mpsc::channel::<LpsResult>();
 
-fn traverse(config: &Config, path: &PathBuf) {
-    let dir = match fs::read_dir(&path) {
-        Ok(dir) => dir,
-        Err(err) => {
-            eprintln!("{}", err);
-            return;
-        }
-    };
+    content_search(&config, files, sender);
 
-    for entry in dir {
-        let entry = match entry {
-            Ok(e) => e,
-            Err(err) => {
-                println!("{}", err);
-                continue;
-            }
-        };
-
-        let path = entry.path();
-
-        if path.is_dir() {
-            traverse(&config, &path);
-            continue;
-        }
-
-        let path_str = match path.to_str() {
-            Some(p) => p,
-            None => {
-                continue;
-            }
-        };
-
-        let file_name = match entry.file_name().to_str() {
-            Some(f) => String::from(f),
-            None => {
-                continue;
-            }
-        };
-
-        if let Some(search) = &config.filename {
-            if !file_name.contains(search) {
-                continue;
-            }
-        }
-
-        if config.content.is_some() {
-            content_search(&config, &path);
-        } else {
-            println!("{}", path_str);
-        }
-    }
-}
-
-fn content_search(config: &Config, path: &PathBuf) {
-    assert!(config.content.is_some());
-
-    let path_str = match path.to_str() {
-        Some(p) => p,
-        None => {
-            eprintln!("failed to convert path to UTF-8");
-            return;
-        }
-    };
-
-    let file = match File::open(&path) {
-        Ok(f) => f,
-        Err(err) => {
-            eprintln!("{}", err);
-            return;
-        }
-    };
-
-    let mut result = Vec::new();
-
-    for (i, line) in BufReader::new(file).lines().enumerate() {
-        let line = match line {
-            Ok(l) => l,
+    // Aggregate results
+    loop {
+        let result = match receiver.recv() {
+            Ok(res) => res,
             Err(_) => {
                 break;
             }
         };
 
-        match line.find(config.content.as_ref().unwrap()) {
-            Some(pos) => {
-                result.push((i + 1, pos, line));
+        if result.lines.is_none() {
+            // lines is none if no content search was performed, just print the file names
+            println!("{}", result.file);
+        } else {
+            let lines = result.lines.unwrap();
+            if !lines.is_empty() {
+                println!("{}", result.file);
+                for line in lines {
+                    println!("  {}:{} {}", line.line, line.column, line.content);
+                }
             }
-            None => (),
         }
     }
 
-    if !result.is_empty() {
-        println!("{}", path_str);
-        for (line, column, text) in result {
-            println!("  {}:{} {}", line, column, text);
-        }
+    //drop(sender);
+
+    // thread::spawn(move || {
+    //     println!("Thread");
+    //     let res = receiver.recv();
+    //     println!("{:?}", res);
+    // }).join();
+
+    //traverse(&config, &config.root, sender.clone());
+
+    Ok(())
+}
+
+fn find_files_by_name(config: &Config, path: &PathBuf) -> Vec<PathBuf> {
+    let mut result = Vec::new();
+
+    result
+}
+
+fn content_search(config: &Config, files: Vec<PathBuf>, sender: mpsc::Sender<LpsResult>) {
+    for chunk in files.chunks(files.len() / config.dop) {
+        let chunk = chunk.to_vec();
+
+        thread::spawn(move || for file in chunk {});
     }
 }
