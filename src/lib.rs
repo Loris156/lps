@@ -147,7 +147,7 @@ fn content_search(config: &Config, path: &PathBuf) {
     for (i, line) in BufReader::new(file).lines().enumerate() {
         let line = match line {
             Ok(l) => l,
-            Err(err) => {
+            Err(_) => {
                 break;
             }
         };
@@ -155,8 +155,8 @@ fn content_search(config: &Config, path: &PathBuf) {
         match line.find(config.content.as_ref().unwrap()) {
             Some(pos) => {
                 result.push((i + 1, pos, line));
-            },
-            None => ()
+            }
+            None => (),
         }
     }
 
