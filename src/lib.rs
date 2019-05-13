@@ -13,7 +13,9 @@ use std::thread;
 pub struct Config {
     verbose: bool,
     filename: Option<String>,
+    ignore_filename_case: bool,
     content: Option<String>,
+    ignore_content_case: bool,
     dop: usize,
     root: PathBuf,
 }
@@ -27,10 +29,14 @@ impl Config {
             None => None,
         };
 
+        let ignore_filename_case = matches.is_present("ignore-filename-case");
+
         let content = match matches.value_of("content") {
             Some(s) => Some(String::from(s)),
             None => None,
         };
+
+        let ignore_content_case = matches.is_present("ignore-content-case");
 
         let dop = match matches.value_of("dop") {
             Some(s) => String::from(s),
@@ -65,7 +71,9 @@ impl Config {
         Ok(Config {
             verbose,
             filename,
+            ignore_filename_case,
             content,
+            ignore_content_case,
             dop,
             root,
         })
@@ -110,6 +118,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         let result = match receiver.recv() {
             Ok(res) => res,
             Err(_) => {
+                // This will occur when all threads have finished
                 break;
             }
         };
@@ -128,16 +137,6 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         }
     }
 
-    //drop(sender);
-
-    // thread::spawn(move || {
-    //     println!("Thread");
-    //     let res = receiver.recv();
-    //     println!("{:?}", res);
-    // }).join();
-
-    //traverse(&config, &config.root, sender.clone());
-
     Ok(())
 }
 
@@ -148,9 +147,25 @@ fn find_files_by_name(config: &Config, path: &PathBuf) -> Vec<PathBuf> {
 }
 
 fn content_search(config: &Config, files: Vec<PathBuf>, sender: mpsc::Sender<LpsResult>) {
-    for chunk in files.chunks(files.len() / config.dop) {
-        let chunk = chunk.to_vec();
+    if config.content.is_none() {
+        // Just yield found files if content search is not requested
+        for file in files {
+            let file = file.to_string_lossy().to_string();
+            if sender
+                .send(LpsResult {
+                    file: file,
+                    lines: None,
+                })
+                .is_err()
+            {
+                break;
+            }
+        }
+    } else {
+        for chunk in files.chunks(files.len() / config.dop) {
+            let chunk = chunk.to_vec();
 
-        thread::spawn(move || for file in chunk {});
+            thread::spawn(move || for file in chunk {});
+        }
     }
 }
