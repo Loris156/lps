@@ -25,12 +25,18 @@ impl Config {
     pub fn new(matches: &clap::ArgMatches) -> Result<Arc<Config>, Box<dyn Error>> {
         let verbose = matches.is_present("verbose");
 
+        let ignore_filename_case = matches.is_present("ignore-filename-case");
+
         let filename = match matches.value_of("filename") {
-            Some(s) => Some(String::from(s)),
+            Some(s) => {
+                if ignore_filename_case {
+                    Some(String::from(s).to_lowercase())
+                } else {
+                    Some(String::from(s))
+                }
+            }
             None => None,
         };
-
-        let ignore_filename_case = matches.is_present("ignore-filename-case");
 
         let ignore_content_case = matches.is_present("ignore-content-case");
 
