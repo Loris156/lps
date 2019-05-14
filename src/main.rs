@@ -3,7 +3,7 @@ use lps::Config;
 
 fn main() {
     let matches = App::new("lps")
-        .version("0.1")
+        .version("1.0")
         .author("Loris Leitner (Loris156)")
         .about("High-speed parallelized searching")
         .arg(
