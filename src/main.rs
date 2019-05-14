@@ -41,6 +41,7 @@ fn main() {
                 .short("d")
                 .long("dop")
                 .value_name("THREAD COUNT")
+                .requires("content")
                 .help("Degree of parallelism (defaults to logical core count)")
                 .takes_value(true),
         )
