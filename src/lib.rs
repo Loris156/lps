@@ -14,7 +14,6 @@ use std::thread;
 pub struct Config {
     verbose: bool,
     filename: Option<String>,
-    ignore_filename_case: bool,
     content: Option<String>,
     ignore_content_case: bool,
     dop: usize,
@@ -86,7 +85,6 @@ impl Config {
         Ok(Arc::new(Config {
             verbose,
             filename,
-            ignore_filename_case,
             content,
             ignore_content_case,
             dop,
@@ -157,6 +155,40 @@ pub fn run(config: Arc<Config>) -> Result<(), Box<dyn Error>> {
 
 fn find_files_by_name(config: &Config, path: &PathBuf) -> Vec<PathBuf> {
     let mut result = Vec::new();
+
+    let dir = match fs::read_dir(&path) {
+        Ok(d) => d,
+        Err(err) => {
+            eprintln!("{}", err);
+            return result;
+        }
+    };
+
+    for entry in dir {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(err) => {
+                eprintln!("{}", err);
+                continue;
+            }
+        };
+
+        let path = entry.path();
+
+        if path.is_dir() {
+            result.append(&mut find_files_by_name(&config, &path));
+            continue;
+        }
+
+        if let Some(search) = &config.filename {
+            let file_name = path.to_string_lossy();
+            if file_name.contains(search) {
+                result.push(path);
+            }
+        } else {
+            result.push(path);
+        }
+    }
 
     result
 }
