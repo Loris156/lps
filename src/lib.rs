@@ -8,6 +8,7 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
 use std::sync::mpsc;
+use std::sync::Arc;
 use std::thread;
 
 pub struct Config {
@@ -21,7 +22,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(matches: &clap::ArgMatches) -> Result<Config, Box<dyn Error>> {
+    pub fn new(matches: &clap::ArgMatches) -> Result<Arc<Config>, Box<dyn Error>> {
         let verbose = matches.is_present("verbose");
 
         let filename = match matches.value_of("filename") {
@@ -68,7 +69,7 @@ impl Config {
             None => env::current_dir()?,
         };
 
-        Ok(Config {
+        Ok(Arc::new(Config {
             verbose,
             filename,
             ignore_filename_case,
@@ -76,7 +77,7 @@ impl Config {
             ignore_content_case,
             dop,
             root,
-        })
+        }))
     }
 }
 
@@ -91,7 +92,7 @@ struct LpsLineResult {
     content: String,
 }
 
-pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
+pub fn run(config: Arc<Config>) -> Result<(), Box<dyn Error>> {
     if config.verbose {
         let root_path = config.root.to_str();
         if root_path.is_none() {
@@ -146,7 +147,7 @@ fn find_files_by_name(config: &Config, path: &PathBuf) -> Vec<PathBuf> {
     result
 }
 
-fn content_search(config: &Config, files: Vec<PathBuf>, sender: mpsc::Sender<LpsResult>) {
+fn content_search(config: &Arc<Config>, files: Vec<PathBuf>, sender: mpsc::Sender<LpsResult>) {
     if config.content.is_none() {
         // Just yield found files if content search is not requested
         for file in files {
@@ -163,6 +164,7 @@ fn content_search(config: &Config, files: Vec<PathBuf>, sender: mpsc::Sender<Lps
         }
     } else {
         for chunk in files.chunks(files.len() / config.dop) {
+            let config = config.clone();
             let chunk = chunk.to_vec();
 
             thread::spawn(move || {
