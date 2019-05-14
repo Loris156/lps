@@ -14,6 +14,7 @@ use std::thread;
 pub struct Config {
     verbose: bool,
     filename: Option<String>,
+    ignore_filename_case: bool,
     content: Option<String>,
     ignore_content_case: bool,
     dop: usize,
@@ -85,6 +86,7 @@ impl Config {
         Ok(Arc::new(Config {
             verbose,
             filename,
+            ignore_filename_case,
             content,
             ignore_content_case,
             dop,
@@ -121,25 +123,23 @@ pub fn run(config: Arc<Config>) -> Result<(), Box<dyn Error>> {
     // Get all files that match name, size, attributes, ...
     let files = find_files_by_name(&config, &config.root);
 
-    // Check content in multiple threads
-    let (sender, receiver) = mpsc::channel::<LpsResult>();
+    if config.content.is_some() {
+        // Check content in multiple threads
+        let (sender, receiver) = mpsc::channel::<LpsResult>();
 
-    content_search(&config, files, sender);
+        content_search(&config, files, sender);
 
-    // Aggregate results
-    loop {
-        let result = match receiver.recv() {
-            Ok(res) => res,
-            Err(_) => {
-                // This will occur when all threads have finished
-                break;
-            }
-        };
+        // Aggregate results
+        loop {
+            let result = match receiver.recv() {
+                Ok(res) => res,
+                Err(_) => {
+                    // This will occur when all threads have finished
+                    break;
+                }
+            };
 
-        if result.lines.is_none() {
-            // lines is none if no content search was performed, just print the file names
-            println!("{}", result.file);
-        } else {
+            assert!(result.lines.is_some());
             let lines = result.lines.unwrap();
             if !lines.is_empty() {
                 println!("{}", result.file);
@@ -147,6 +147,11 @@ pub fn run(config: Arc<Config>) -> Result<(), Box<dyn Error>> {
                     println!("  {}:{} {}", line.line, line.column, line.content);
                 }
             }
+        }
+    } else {
+        // Just yield results
+        for file in files {
+            println!("{}", file.to_string_lossy());
         }
     }
 
@@ -181,7 +186,10 @@ fn find_files_by_name(config: &Config, path: &PathBuf) -> Vec<PathBuf> {
         }
 
         if let Some(search) = &config.filename {
-            let file_name = path.to_string_lossy();
+            let mut file_name = String::from(path.to_string_lossy());
+            if config.ignore_filename_case {
+                file_name = file_name.to_lowercase();
+            }
             if file_name.contains(search) {
                 result.push(path);
             }
@@ -194,72 +202,56 @@ fn find_files_by_name(config: &Config, path: &PathBuf) -> Vec<PathBuf> {
 }
 
 fn content_search(config: &Arc<Config>, files: Vec<PathBuf>, sender: mpsc::Sender<LpsResult>) {
-    if config.content.is_none() {
-        // Just yield found files if content search is not requested
-        for file in files {
-            let file = file.to_string_lossy().to_string();
-            if sender
-                .send(LpsResult {
-                    file: file,
-                    lines: None,
-                })
-                .is_err()
-            {
-                break;
-            }
-        }
-    } else {
-        assert!(config.content.is_some());
-        for chunk in files.chunks(files.len() / config.dop) {
-            let config = config.clone();
-            let sender = sender.clone();
-            let chunk = chunk.to_vec();
+    assert!(config.content.is_some());
+    for chunk in files.chunks(files.len() / config.dop) {
+        let config = config.clone();
+        let sender = sender.clone();
+        let chunk = chunk.to_vec();
 
-            thread::spawn(move || {
-                for file in chunk {
-                    let file_path = file.to_string_lossy().to_string();
-                    let file = match File::open(file) {
-                        Ok(f) => f,
+        thread::spawn(move || {
+            for file in chunk {
+                let file_path = file.to_string_lossy().to_string();
+                let file = match File::open(file) {
+                    Ok(f) => f,
+                    Err(_) => {
+                        continue;
+                    }
+                };
+
+                let mut found_lines = Vec::new();
+                for (i, line) in BufReader::new(file).lines().enumerate() {
+                    let line = match line {
+                        Ok(l) => {
+                            if config.ignore_content_case {
+                                l.to_lowercase()
+                            } else {
+                                l
+                            }
+                        }
                         Err(_) => {
                             continue;
                         }
                     };
 
-                    let mut found_lines = Vec::new();
-                    for (i, line) in BufReader::new(file).lines().enumerate() {
-                        let line = match line {
-                            Ok(l) => {
-                                if config.ignore_content_case {
-                                    l.to_lowercase()
-                                } else {
-                                    l
-                                }
-                            }
-                            Err(_) => {
-                                continue;
-                            }
-                        };
-
-                        if let Some(pos) = line.find(config.content.as_ref().unwrap()) {
-                            found_lines.push(LpsLineResult {
-                                line: i + 1,
-                                column: pos,
-                                content: line,
-                            });
-                        }
-                    }
-
-                    if sender
-                        .send(LpsResult {
-                            file: file_path,
-                            lines: Some(found_lines),
-                        })
-                        .is_err()
-                    {
-                        break;
+                    if let Some(pos) = line.find(config.content.as_ref().unwrap()) {
+                        found_lines.push(LpsLineResult {
+                            line: i + 1,
+                            column: pos,
+                            content: line,
+                        });
                     }
                 }
-            });
-        }
+
+                if sender
+                    .send(LpsResult {
+                        file: file_path,
+                        lines: Some(found_lines),
+                    })
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        });
     }
 }
