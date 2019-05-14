@@ -32,12 +32,20 @@ impl Config {
 
         let ignore_filename_case = matches.is_present("ignore-filename-case");
 
+        let ignore_content_case = matches.is_present("ignore-content-case");
+
         let content = match matches.value_of("content") {
-            Some(s) => Some(String::from(s)),
+            Some(s) => {
+                // If case-insensitive content comparison is requested
+                // convert for the whole program lifetime
+                if ignore_content_case {
+                    Some(String::from(s).to_lowercase())
+                } else {
+                    Some(String::from(s))
+                }
+            }
             None => None,
         };
-
-        let ignore_content_case = matches.is_present("ignore-content-case");
 
         let dop = match matches.value_of("dop") {
             Some(s) => String::from(s),
@@ -87,8 +95,8 @@ struct LpsResult {
 }
 
 struct LpsLineResult {
-    line: u32,
-    column: u32,
+    line: usize,
+    column: usize,
     content: String,
 }
 
@@ -163,12 +171,15 @@ fn content_search(config: &Arc<Config>, files: Vec<PathBuf>, sender: mpsc::Sende
             }
         }
     } else {
+        assert!(config.content.is_some());
         for chunk in files.chunks(files.len() / config.dop) {
             let config = config.clone();
+            let sender = sender.clone();
             let chunk = chunk.to_vec();
 
             thread::spawn(move || {
                 for file in chunk {
+                    let file_path = file.to_string_lossy().to_string();
                     let file = match File::open(file) {
                         Ok(f) => f,
                         Err(_) => {
@@ -176,13 +187,38 @@ fn content_search(config: &Arc<Config>, files: Vec<PathBuf>, sender: mpsc::Sende
                         }
                     };
 
-                    for line in BufReader::new(file).lines() {
+                    let mut found_lines = Vec::new();
+                    for (i, line) in BufReader::new(file).lines().enumerate() {
                         let line = match line {
-                            Ok(l) => l,
+                            Ok(l) => {
+                                if config.ignore_content_case {
+                                    l.to_lowercase()
+                                } else {
+                                    l
+                                }
+                            }
                             Err(_) => {
                                 continue;
                             }
                         };
+
+                        if let Some(pos) = line.find(config.content.as_ref().unwrap()) {
+                            found_lines.push(LpsLineResult {
+                                line: i + 1,
+                                column: pos,
+                                content: line,
+                            });
+                        }
+                    }
+
+                    if sender
+                        .send(LpsResult {
+                            file: file_path,
+                            lines: Some(found_lines),
+                        })
+                        .is_err()
+                    {
+                        break;
                     }
                 }
             });
