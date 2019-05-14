@@ -3,7 +3,7 @@ use lps::Config;
 
 fn main() {
     let matches = App::new("lps")
-        .version("0.1")
+        .version("1.0.1")
         .author("Loris Leitner (Loris156)")
         .about("High-speed parallelized searching")
         .arg(
@@ -41,6 +41,7 @@ fn main() {
                 .short("d")
                 .long("dop")
                 .value_name("THREAD COUNT")
+                .requires("content")
                 .help("Degree of parallelism (defaults to logical core count)")
                 .takes_value(true),
         )
