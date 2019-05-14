@@ -21,7 +21,7 @@ List of available parameters
 |   -v  |        --verbose       |                    Enables verbose output                    |     -    |          false         |
 |   -n  |         --name         |                  Filter files based on name                  |     -    |  No files are filtered |
 |   -b  | --ignore-filename-case | Ignores the casing of file names when name filtering is used |    -n    |          false         |
-|   -c  |        --content       |                    Search content of files                   |          | No content is searched |
+|   -c  |        --content       |                    Search content of files                   |     -    | No content is searched |
 |   -x  |  --ignore-content-case |     Ignores casing of content when content search is used    |    -c    |          false         |
 |   -d  |          --dop         |  Sets the amount of worker threads to use for content search |    -c    |   Logical core count   |
 
