@@ -221,24 +221,29 @@ fn content_search(config: &Arc<Config>, files: Vec<PathBuf>, sender: mpsc::Sende
                 let mut found_lines = Vec::new();
                 for (i, line) in BufReader::new(file).lines().enumerate() {
                     let line = match line {
-                        Ok(l) => {
-                            if config.ignore_content_case {
-                                l.to_lowercase()
-                            } else {
-                                l
-                            }
-                        }
+                        Ok(l) => l,
                         Err(_) => {
                             continue;
                         }
                     };
 
-                    if let Some(pos) = line.find(config.content.as_ref().unwrap()) {
-                        found_lines.push(LpsLineResult {
-                            line: i + 1,
-                            column: pos,
-                            content: line,
-                        });
+                    if config.ignore_content_case {
+                        let comp_line = line.to_lowercase();
+                        if let Some(pos) = comp_line.find(config.content.as_ref().unwrap()) {
+                            found_lines.push(LpsLineResult {
+                                line: i + 1,
+                                column: pos,
+                                content: line,
+                            });
+                        }
+                    } else {
+                        if let Some(pos) = line.find(config.content.as_ref().unwrap()) {
+                            found_lines.push(LpsLineResult {
+                                line: i + 1,
+                                column: pos,
+                                content: line,
+                            });
+                        }
                     }
                 }
 
