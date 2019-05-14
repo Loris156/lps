@@ -15,11 +15,33 @@ fn main() {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("ignore-filename-case")
+                .short("b")
+                .long("ignore-filename-case")
+                .requires("filename")
+                .help("Ignores casing of filename"),
+        )
+        .arg(
             Arg::with_name("content")
                 .short("c")
                 .long("content")
                 .value_name("TEXT")
                 .help("File content")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("ignore-content-case")
+                .short("x")
+                .long("ignore-content-case")
+                .requires("content")
+                .help("Ignores casing of content"),
+        )
+        .arg(
+            Arg::with_name("dop")
+                .short("d")
+                .long("dop")
+                .value_name("THREAD COUNT")
+                .help("Degree of parallelism (defaults to logical core count)")
                 .takes_value(true),
         )
         .arg(
