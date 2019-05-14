@@ -1,7 +1,10 @@
 [package]
 name = "lps"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["Loris Leitner <lorisleitner@live.com>"]
+license = "MIT License"
 edition = "2018"
 
 [dependencies]
+clap = "2.33.0"
+num_cpus = "1.10.0"
