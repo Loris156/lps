@@ -51,11 +51,11 @@ In content search mode, lps will print a list of file paths and the occurrences 
 
 ```
 <path>
-  <line>:<column><whitespace><text>
-  <line>:<column><whitespace><text>
+  <line>:<column> <text>
+  <line>:<column> <text>
 <path>
-  <line>:<column><whitespace><text>
-  <line>:<column><whitespace><text>
+  <line>:<column> <text>
+  <line>:<column> <text>
 ```
 
 ###### Note the 2 space indentation before every occurrence in the file
