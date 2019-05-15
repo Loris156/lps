@@ -10,9 +10,9 @@ fn main() {
             Arg::with_name("filename")
                 .short("n")
                 .long("name")
+                .takes_value(true)
                 .value_name("FILENAME")
-                .help("Filename pattern")
-                .takes_value(true),
+                .help("Filename pattern"),
         )
         .arg(
             Arg::with_name("ignore-filename-case")
@@ -25,9 +25,9 @@ fn main() {
             Arg::with_name("content")
                 .short("c")
                 .long("content")
+                .takes_value(true)
                 .value_name("TEXT")
-                .help("File content")
-                .takes_value(true),
+                .help("File content"),
         )
         .arg(
             Arg::with_name("ignore-content-case")
@@ -40,10 +40,10 @@ fn main() {
             Arg::with_name("dop")
                 .short("d")
                 .long("dop")
-                .value_name("THREAD COUNT")
                 .requires("content")
-                .help("Degree of parallelism (defaults to logical core count)")
-                .takes_value(true),
+                .takes_value(true)
+                .value_name("THREAD COUNT")
+                .help("Degree of parallelism (defaults to logical core count)"),
         )
         .arg(
             Arg::with_name("verbose")
